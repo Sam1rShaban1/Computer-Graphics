@@ -12,7 +12,7 @@ document.body.appendChild(renderer.domElement);
 const geometry = new THREE.BoxGeometry(1,1,1);
 const material = new THREE.MeshStandardMaterial({ color: 0xf5424e });
 const cube = new THREE.Mesh(geometry, material);
-scene.add(cube);
+// scene.add(cube);
 
 // Transformations
 
@@ -38,15 +38,47 @@ scene.add(axes)
 // cube.rotation.y = Math.PI * .25
 // cube.rotation.z = Math.PI * .65
 
-cube.position.set(0.7,-0.6,0.5)
+// cube.position.set(0.7,-0.6,0.5)
 
-console.log("Distance tof cube from camera", cube.position.distanceTo(camera.position))
-cube.scale.set(4,0.3,0.75)
-cube.rotation.set(Math.PI * 2, Math.PI * .25, Math.PI * .65)
+// console.log("Distance tof cube from camera", cube.position.distanceTo(camera.position))
+// cube.scale.set(4,0.3,0.75)
+// cube.rotation.set(Math.PI * 2, Math.PI * .25, Math.PI * .65)
 
-const light = new THREE.DirectionalLight(0xffffff, 3);
+const light = new THREE.DirectionalLight(0xffffff, 1);
 light.position.set(3,3,3);
 scene.add(light);
+
+const group = new THREE.Group()
+group.scale.x = .5
+group.scale.y = 2
+group.position.y = .5
+group.rotation.x = Math.PI * .25
+scene.add(group)
+
+const cube1 = new THREE.Mesh(
+    new THREE.BoxGeometry(1,1,1), 
+    new THREE.MeshStandardMaterial({color: "yellow"})
+)
+
+cube1.position.x = -1.5
+group.add(cube1)
+
+const cube2 = new THREE.Mesh(
+    new THREE.BoxGeometry(1,1,1), 
+    new THREE.MeshStandardMaterial({color: "blue"})
+)
+
+cube2.position.x = 3
+group.add(cube2)
+
+const cube3 = new THREE.Mesh(
+    new THREE.BoxGeometry(1,1,1), 
+    new THREE.MeshStandardMaterial({color: "green"})
+)
+
+cube3.position.x = 1.5
+group.add(cube3)
+
 
 function animate() {
     requestAnimationFrame(animate);
