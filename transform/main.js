@@ -55,7 +55,7 @@ group.position.y = .5
 group.rotation.x = Math.PI * .25
 scene.add(group)
 
-const cube1 = new THREE.Mesh(
+const shape1 = new THREE.Mesh(
     new THREE.BoxGeometry(1,1,1), 
     new THREE.MeshStandardMaterial({color: "yellow"})
 )
