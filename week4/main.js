@@ -1,103 +1,107 @@
 import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import {RectAreaLightHelper} from 'three/examples/jsm/helpers/RectAreaLightHelper.js'
+import GUI from 'lil-gui'
+
+const gui = new GUI()
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xffffff);
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.z = 5
 
-const renderer = new THREE.WebGLRenderer({antialias:true});
-renderer.setSize(800, 600);
-document.body.appendChild(renderer.domElement);
+const material = new THREE.MeshStandardMaterial();
 
-// const geometry = new THREE.BoxGeometry(1,1,1);
-// const material = new THREE.MeshStandardMaterial({ color: 0xf5424e });
-// const cube = new THREE.Mesh(geometry, material);
-// scene.add(cube);
+const sphere = new THREE.Mesh(
+    new THREE.SphereGeometry(1, 32, 32),
+    material
+);
+sphere.position.x = -3.5
+scene.add(sphere)
 
-// Transformations
+const cube = new THREE.Mesh(
+    new THREE.BoxGeometry(1, 1, 1),
+    material
+);
+scene.add(cube)
 
-// cube.position.x = 0.7
-// cube.position.y = -0.6
-// cube.position.z = 0.5
+const torus = new THREE.Mesh(
+    new THREE.TorusGeometry(0.7, 0.2, 32, 100),
+    material
+);
+torus.position.x = 3.5
+scene.add(torus)
 
+const plane = new THREE.Mesh(
+    new THREE.PlaneGeometry(5, 5),
+    material
+);
+plane.position.y = -0.65
+plane.rotation.x = - Math.PI * 0.5
+scene.add(plane)
 
-
-// const axes = new THREE.AxesHelper(4)
-// scene.add(axes)
-
-// Scaling
-
-// cube.scale.x = 4
-// cube.scale.y = 0.3
-// cube.scale.z = 0.75
-
-
-// Rotation
-
-// cube.rotation.x = Math.PI * 2
-// cube.rotation.y = Math.PI * .25
-// cube.rotation.z = Math.PI * .65
-
-// cube.position.set(0.7,-0.6,0.5)
-
-// console.log("Distance tof cube from camera", cube.position.distanceTo(camera.position))
-// cube.scale.set(4,0.3,0.75)
-// cube.rotation.set(Math.PI * 2, Math.PI * .25, Math.PI * .65)
-
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.7)
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.1)
 scene.add(ambientLight)
+gui.add(ambientLight, 'intensity').min(0).max(3).step(0.001).name('Ambient Light Intensity')
 
-const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-directionalLight.position.set(3,3,3);
-scene.add(directionalLight);
+const directionalLight = new THREE.DirectionalLight(0x00fffc, 0.3)
+directionalLight.position.set(1, 0.25, 0)
+scene.add(directionalLight)
 
-const lightHelper = new THREE.DirectionalLightHelper(directionalLight)
-scene.add(lightHelper)
+const directionalLightHelper = new THREE.DirectionalLightHelper(directionalLight, 0.2)
+scene.add(directionalLightHelper)
 
-const group = new THREE.Group()
-group.scale.x = .5
-group.scale.y = 1
-// group.position.y = .5
-group.rotation.x = Math.PI * .25
-scene.add(group)
+const hemosphericLight = new THREE.HemisphereLight(0xff0000, 0x0000ff, 0.3)
+scene.add(hemosphericLight)
 
-const x = 0, y = 0;
+const hemosphericLightHelper = new THREE.HemisphereLightHelper(hemosphericLight, 0.2)
+scene.add(hemosphericLightHelper)
 
-const ground = new THREE.PlaneGeometry(1000,1000)
-const groundMaterial = new THREE.MeshStandardMaterial({color: "orange", metalness: 0.7, roughness: 0.2})
-const plane = new THREE.Mesh( ground, groundMaterial) ;
-scene.add( plane );
+const pointLight = new THREE.PointLight(0xff9000, 0.5, 10, 2)
+pointLight.position.set(1, -0.5, 1)
+scene.add(pointLight)
 
-// const geometry = new THREE.SphereGeometry(1, 12, 25);
-const geometry = new THREE.CapsuleGeometry(1, 3, 20)
-// const material = new THREE.MeshBasicMaterial( { color: "red", wireframe:true } );
-// const material = new THREE.MeshLambertMaterial({color: "blue", wireframe:true});
-const material = new THREE.MeshStandardMaterial({color: "orange", metalness: 0.7, roughness: 0.2})
-const heart = new THREE.Mesh( geometry, material) ;
-heart.scale.set(1, 1, 1)
-scene.add( heart );
+const pointLightHelper = new THREE.PointLightHelper(pointLight, 0.2)
+scene.add(pointLightHelper)
 
-// const cylinder = new THREE.Mesh(
-//     new THREE.CylinderGeometry(1,1,1), 
-//     new THREE.MeshStandardMaterial({color: "blue"})
-// )
-// cylinder.position.x = 3
-// group.add(cylinder)
+const rectAreaLight = new THREE.RectAreaLight(0x4e00ff, 2, 1, 1)
+rectAreaLight.position.set(-1.5, 0, 1.5)
+rectAreaLight.lookAt(new THREE.Vector3())
+scene.add(rectAreaLight)
 
-// const capsule = new THREE.Mesh(
-//     new THREE.CapsuleGeometry(1,1,1), 
-//     new THREE.MeshStandardMaterial({color: "green"})
-// )
-// capsule.position.x = -3
-// group.add(capsule)
+const rectAreaLightHelper = new RectAreaLightHelper(rectAreaLight)
+scene.add(rectAreaLightHelper)
 
+const spotLight = new THREE.SpotLight(0x78ff00, 0.5, 10, Math.PI * 0.1, 0.25, 1)
+spotLight.position.set(0, 2, 3)
+scene.add(spotLight)
+spotLight.target.position.x = -0.75
+scene.add(spotLight.target)
 
-function animate() {
-    requestAnimationFrame(animate);
-    heart.rotation.x += 0.01;
-    heart.rotation.y += 0.01;
-    heart.rotation.z += 0.02;
-    renderer.render(scene, camera);
+const spotLightHelper = new THREE.SpotLightHelper(spotLight)
+scene.add(spotLightHelper)
+
+const sizes = {
+    width : window.innerWidth,
+    height: window.innerHeight 
 }
 
-animate();
+window.addEventListener('resize', () => {
+    sizes.width = window.innerWidth
+    sizes.height = window.innerHeight
+    camera.aspect = sizes.width / sizes.height
+    renderer.setSize(sizes.width, sizes.height)
+})
+
+const camera = new THREE.PerspectiveCamera(75, sizes.width / sizes.height, 0.1, 100);
+camera.position.set(0, 0, 5)
+scene.add(camera);
+
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(sizes.width, sizes.height);
+document.body.appendChild(renderer.domElement);
+
+function animate() {
+    requestAnimationFrame(animate)
+    renderer.render(scene, camera)
+    camera.rotation.y += 10;
+    camera.lookAt(new THREE.Vector3(0, 0, 0));
+}
+animate()
