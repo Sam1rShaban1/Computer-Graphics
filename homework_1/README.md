@@ -1,14 +1,10 @@
-Of course. Here is a completely rewritten, up-to-date `README.md` file that accurately reflects the current state of your project, including the new data sources and advanced features.
-
-Just copy and paste this content into your `README.md` file.
-
 ---
 
 # 📍 SEEU Campus Interactive 3D Viewer
 
 This project renders an interactive, 3D model of the SEEU campus, complete with buildings, roads, and walkways. It uses [Three.js](https://threejs.org/) to process multiple `GeoJSON` files in the browser and creates a realistic scene with PBR materials and dynamic shadows. The development environment is powered by [Vite](https://vitejs.dev/) for a fast and modern workflow.
 
-![preview](homework_1/preview.png)
+![preview](preview.png)
 
 ---
 
