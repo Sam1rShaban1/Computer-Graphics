@@ -1,17 +1,27 @@
-## 📍 SEEU Campus 3D Viewer
+Of course. Here is a completely rewritten, up-to-date `README.md` file that accurately reflects the current state of your project, including the new data sources and advanced features.
 
-This project loads a cropped `GeoJSON` of building footprints and renders them as 3D extruded meshes using [Three.js](https://threejs.org/) and [Vite](https://vitejs.dev/) for fast development.
-
-![preview](preview.png) <!-- Optional: You can add a screenshot here -->
+Just copy and paste this content into your `README.md` file.
 
 ---
 
-### 📦 Features
+# 📍 SEEU Campus Interactive 3D Viewer
 
-* 3D visualization of buildings using `Three.js`
-* GeoJSON loading and extrusion
-* Interactive orbit controls
-* Vite for fast development and hot reloading
+This project renders an interactive, 3D model of the SEEU campus, complete with buildings, roads, and walkways. It uses [Three.js](https://threejs.org/) to process multiple `GeoJSON` files in the browser and creates a realistic scene with PBR materials and dynamic shadows. The development environment is powered by [Vite](https://vitejs.dev/) for a fast and modern workflow.
+
+![preview](homework_1/preview.png)
+
+---
+
+### ✨ Features
+
+*   **Interactive 3D Campus:** A full 3D visualization of the campus, not just buildings.
+*   **Multiple Data Sources:** Loads and processes separate GeoJSON files for buildings, roads, and walkways.
+*   **Data-Driven Building Heights:** Building heights are not random; they are read directly from the `estimated_height` property in the GeoJSON data.
+*   **Custom Geometry Processing:** Correctly interprets a unique GeoJSON structure where some polygons act as "holes" for the walkway mesh.
+*   **Realistic PBR Materials:** Uses `MeshPhysicalMaterial` and `MeshStandardMaterial` with properties like `roughness` and `clearcoat` for a realistic look without requiring external textures.
+*   **Dynamic Lighting & Shadows:** Features a realistic lighting setup with a sun (DirectionalLight) and sky (HemisphereLight) that cast soft, dynamic shadows.
+*   **Smooth Orbit Controls:** Full freedom to pan, zoom, and rotate around the scene.
+*   **Fast Development with Vite:** Hot reloading and an optimized build process make development a breeze.
 
 ---
 
@@ -19,10 +29,12 @@ This project loads a cropped `GeoJSON` of building footprints and renders them a
 
 ```
 .
-├── index.html              # Entry point
-├── main.js                 # Main Three.js scene setup
+├── index.html                  # Main HTML entry point
+├── main.js                     # Core Three.js scene setup and data loading logic
 ├── data/
-│   └── SEEUcampus.geojson  # Cropped GeoJSON file
+│   ├── SEEUcampus.geojson      # Building footprint data
+│   ├── roads.geojson           # Road layout data
+│   └── SEEU_walkway.geojson    # Walkway layout data with "hole" polygons
 ├── package.json
 └── README.md
 ```
@@ -43,7 +55,7 @@ npm install
 npm run dev
 ```
 
-This will launch the app at:
+This will launch the application, typically at:
 
 ```
 http://localhost:5173/
@@ -51,18 +63,22 @@ http://localhost:5173/
 
 ---
 
-### 🧠 Notes
+### 📊 Data Sources
 
-* Make sure your `SEEUcampus.geojson` is in the `data/` folder.
-* GeoJSON features should be of type `Polygon` or `MultiPolygon`.
-* Extrusion height is randomized unless specified in attributes (could be extended).
+*   **Buildings:** The building footprint data is sourced from [Microsoft's Global Building Footprints](https://github.com/microsoft/GlobalMLBuildingFootprints), which is often derived from OpenStreetMap data.
+*   **Roads & Walkways:** These are custom GeoJSON files that were created manually to accurately represent the campus layout.
+
+---
+
+### 🧠 Technical Notes
+
+*   **Coordinate Projection:** All GeoJSON coordinates (longitude/latitude) are projected into a 2D plane within the `main.js` script to ensure all data sources align perfectly.
+*   **Walkway Hole Logic:** The `SEEU_walkway.geojson` file has a unique structure where red-filled polygons are treated as holes. The script identifies these, separates them, and uses Three.js's `Shape` and `Path` objects to correctly cut them out from the main walkway mesh.
+*   **Materials:** The scene relies entirely on Three.js's built-in PBR materials, configured to simulate surfaces like asphalt, concrete, and architectural facades without any external texture files.
 
 ---
 
 ### 🔧 Built With
 
-* [Three.js](https://threejs.org/) – WebGL 3D Engine
-* [Vite](https://vitejs.dev/) – Build tool
-* [Turf.js](https://turfjs.org/) – (optional for cropping in preprocessing)
-
----
+*   [Three.js](https://threejs.org/) – WebGL 3D Engine
+*   [Vite](https://vitejs.dev/) – Next-Generation Frontend Tooling
