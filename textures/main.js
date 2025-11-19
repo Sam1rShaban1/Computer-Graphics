@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { EXRLoader } from 'three/examples/jsm/loaders/EXRLoader.js';
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;   
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 document.body.appendChild(renderer.domElement);
@@ -44,6 +45,7 @@ dirLightHelper.visible = false;
 scene.add(dirLightHelper);
 
 const textureLoader = new THREE.TextureLoader();
+const exrLoader = new EXRLoader();
 
 // Coblle Texture
 const cobble = textureLoader.load('textures/Stylized_Stone_Floor_010_basecolor.png');
@@ -63,18 +65,61 @@ wood.wrapT = THREE.RepeatWrapping;
 wood.repeat.set(2, 2);
 wood.anisotropy = 16;
 
+//Asphalt Texture
+const asphaltNormal = exrLoader.load('asphalt_track_2k.blend/textures/asphalt_track_nor_gl_2k.exr');
+const asphaltDisplacement = textureLoader.load('asphalt_track_2k.blend/textures/asphalt_track_disp_2k.png');
+const asphaltRoughness = exrLoader.load('asphalt_track_2k.blend/textures/asphalt_track_rough_2k.exr');
+const asphaltDiffuse = textureLoader.load('asphalt_track_2k.blend/textures/asphalt_track_diff_2k.jpg');
+asphaltNormal.wrapS = THREE.RepeatWrapping;
+asphaltNormal.wrapT = THREE.RepeatWrapping;
+asphaltNormal.repeat.set(2, 2);
+asphaltNormal.anisotropy = 16;
+
+//Ground Texture
+const groundNormal = exrLoader.load('brown_mud_leaves_01_2k.blend/textures/brown_mud_leaves_01_nor_gl_2k.exr');
+const groundDisplacement = textureLoader.load('brown_mud_leaves_01_2k.blend/textures/brown_mud_leaves_01_disp_2k.png');
+const groundRoughness = exrLoader.load('brown_mud_leaves_01_2k.blend/textures/brown_mud_leaves_01_rough_2k.exr');
+const groundDiffuse = textureLoader.load('brown_mud_leaves_01_2k.blend/textures/brown_mud_leaves_01_diff_2k.jpg');
+groundNormal.wrapS = THREE.RepeatWrapping;
+groundNormal.wrapT = THREE.RepeatWrapping;
+groundNormal.repeat.set(100, 100);
+groundNormal.anisotropy = 16;
+
+//Walkway Texture
+const walkNormal = exrLoader.load('concrete_pavers_2k.blend/textures/concrete_pavers_nor_gl_2k.exr');
+const walkDisplacement = textureLoader.load('concrete_pavers_2k.blend/textures/concrete_pavers_disp_2k.png');
+const walkRoughness = exrLoader.load('concrete_pavers_2k.blend/textures/concrete_pavers_rough_2k.exr');
+const walkDiffuse = textureLoader.load('concrete_pavers_2k.blend/textures/concrete_pavers_diff_2k.jpg');
+walkNormal.wrapS = THREE.RepeatWrapping;
+walkNormal.wrapT = THREE.RepeatWrapping;
+walkNormal.repeat.set(2, 2);
+walkNormal.anisotropy = 16;
+
+//Plaster Texture
+const buildingNormal = exrLoader.load('plaster_grey_04_2k.blend/textures/plaster_grey_04_nor_gl_2k.exr');
+const buildingDisplacement = textureLoader.load('plaster_grey_04_2k.blend/textures/plaster_grey_04_disp_2k.png');
+const buildingRoughness = exrLoader.load('plaster_grey_04_2k.blend/textures/plaster_grey_04_rough_2k.exr');
+const buildingDiffuse = textureLoader.load('plaster_grey_04_2k.blend/textures/plaster_grey_04_diff_2k.jpg');
+buildingNormal.wrapS = THREE.RepeatWrapping;
+buildingNormal.wrapT = THREE.RepeatWrapping;
+buildingNormal.repeat.set(2, 2);
+buildingNormal.anisotropy = 16;
 // Asphalt: Dark, non-metallic, very rough surface
 const roadMaterial = new THREE.MeshStandardMaterial({
-    metalness: 0.0,
-    roughness: 0.9,
-    map: cobble
+    map: asphaltDiffuse,
+    normalMap: asphaltNormal,
+    displacementMap: asphaltDisplacement,
+    displacementScale: 0.01,
+    roughnessMap: asphaltRoughness
 });
 
 // Concrete/Cobblestone: Lighter, non-metallic, slightly less rough
 const walkwayMaterial = new THREE.MeshStandardMaterial({
-    metalness: 0.0,
-    roughness: 0.8,
-    map: wood
+    map: walkDiffuse,
+    normalMap: walkNormal,
+    displacementMap: walkDisplacement,
+    displacementScale: 0.01,
+    roughnessMap: walkRoughness
 });
 
 // Modern Building Facade: Can simulate glass/coated panels
@@ -84,17 +129,20 @@ const buildingColors = [
     0xFFFFE0  // Light Yellow
 ];
 const buildingMaterial = new THREE.MeshPhysicalMaterial({
-    metalness: 0.1,
-    roughness: 0.5,
-    clearcoat: 0.5,         // Simulates a glossy clear layer
-    clearcoatRoughness: 0.3,
-    map: wood
+    map: buildingDiffuse,
+    normalMap: buildingNormal,
+    displacementMap: buildingDisplacement,
+    displacementScale: 0.01,
+    roughnessMap: buildingRoughness
 });
 
 // Grass: Simple, matte green
 const groundMaterial = new THREE.MeshStandardMaterial({
-    metalness: 0.0,
-    roughness: 1.0
+    map: groundDiffuse,
+    normalMap: groundNormal,
+    displacementMap: groundDisplacement,
+    displacementScale: 0.01,
+    roughnessMap: groundRoughness
 });
 
 // --- Environment ---
