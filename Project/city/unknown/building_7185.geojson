@@ -1,0 +1,42 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "721c1283-1863-46a6-b392-393f1268f0b7",
+        "estimated_height": 3,
+        "rf_penetration_loss": 12,
+        "pycraf_clutter_zone": 5,
+        "building": "residential"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              20.9621804,
+              42.0076012
+            ],
+            [
+              20.9622961,
+              42.0075333
+            ],
+            [
+              20.9623522,
+              42.0075861
+            ],
+            [
+              20.9622365,
+              42.007654
+            ],
+            [
+              20.9621804,
+              42.0076012
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}
