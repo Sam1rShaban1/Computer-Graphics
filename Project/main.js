@@ -4,6 +4,13 @@ import { EXRLoader } from 'three/examples/jsm/loaders/EXRLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { configureTextures, createMaterials } from './src/materials.js';
 
+// Import new timeline components
+import { IntroBanner } from './src/introBanner.js';
+import { TimelineUI } from './src/timelineUI.js';
+import { BuildingAnimator } from './src/buildingAnimator.js';
+import { BuildingInfoPanel } from './src/buildingInfoPanel.js';
+import { BUILDING_TIMELINE, BUILDING_INFO } from './src/buildingData.js';
+
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
@@ -18,17 +25,18 @@ renderer.setClearColor(0x000000, 0);
 const campusGroup = new THREE.Group();
 scene.add(campusGroup);
 campusGroup.scale.setScalar(1);
-campusGroup.rotation.x = -Math.PI / 2
+campusGroup.rotation.x = -Math.PI / 2;
 
 // --- Camera Setup ---
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
-camera.position.set(0, 20, 20); // Position the camera higher on the Y-axis
-camera.up.set(0, 0, 1); // Set Z as the up direction
+// Position camera to see entire campus (coordinates are in local space after rotation)
+camera.position.set(0, -300, 200); 
+camera.up.set(0, 0, 1); // Z is up
 
 // --- Controls ---
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
-controls.target.set(0, 0, 0); // Target the center of the scene
+controls.target.set(0, 0, 0); // Target center of scene
 controls.screenSpacePanning = false;
 controls.enableRotate = true;
 controls.minPolarAngle = 0; // Allow camera to rotate fully above the ground
@@ -57,10 +65,6 @@ const fillLight = new THREE.PointLight(0xffc38b, 0.2, 600);
 fillLight.position.set(-180, -220, 140);
 scene.add(fillLight);
 
-const dirLightHelper = new THREE.DirectionalLightHelper(dirLight, 10);
-dirLightHelper.visible = false;
-scene.add(dirLightHelper);
-
 const exrLoader = new EXRLoader();
 const gltfLoader = new GLTFLoader();
 
@@ -76,42 +80,31 @@ exrLoader.load(
     undefined,
     (error) => {
         console.warn('Autumn Field HDRI not found, using solid color background', error);
-        // Fallback to gradient background
         scene.background = null;
     }
 );
 
+// Raycasting for interaction
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
-const buildingMeshes = [];
 let highlightedBuilding = null;
 let buildingMaterialCursor = 0;
 
-const infoPanel = document.createElement('div');
-infoPanel.id = 'building-info-panel';
-infoPanel.style.position = 'fixed';
-infoPanel.style.bottom = '24px';
-infoPanel.style.left = '24px';
-infoPanel.style.maxWidth = '500px';
-infoPanel.style.padding = '16px 18px';
-infoPanel.style.background = 'rgba(12, 16, 24, 0.78)';
-infoPanel.style.color = '#f4f6fb';
-infoPanel.style.fontFamily = "'Segoe UI', sans-serif";
-infoPanel.style.fontSize = '13px';
-infoPanel.style.lineHeight = '1.45';
-infoPanel.style.borderRadius = '12px';
-infoPanel.style.boxShadow = '0 12px 24px rgba(0, 0, 0, 0.35)';
-infoPanel.style.pointerEvents = 'none';
-infoPanel.style.backdropFilter = 'blur(6px)';
-infoPanel.textContent = 'Click a building to view material details.';
-document.body.appendChild(infoPanel);
+// --- Initialize Components ---
+const introBanner = new IntroBanner();
+const timelineUI = new TimelineUI(
+    (year, animate) => handleYearChange(year, animate),
+    (isPlaying) => console.log('Timeline playing:', isPlaying)
+);
+const buildingAnimator = new BuildingAnimator(scene, camera, controls);
+const infoPanel = new BuildingInfoPanel();
 
 // --- Initialize Materials ---
 configureTextures();
 const { groundMaterial, roadMaterial, walkwayMaterial, buildingMaterials } = createMaterials();
 
 // --- Environment ---
-scene.fog = new THREE.Fog(0xADD8E6, 300, 800); // Light blue fog, matches the sky gradient
+scene.fog = new THREE.Fog(0xADD8E6, 100, 600); // Lighter fog for better visibility
 
 // --- Ground Plane ---
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(2000, 2000), groundMaterial);
@@ -121,8 +114,8 @@ campusGroup.add(ground);
 
 // --- Data Loading Logic ---
 function projectCoord([lon, lat]) {
-  const scale = 100000;
-  return [(lon - 20.96) * scale, (lat - 41.985) * scale];
+    const scale = 100000;
+    return [(lon - 20.96) * scale, (lat - 41.985) * scale];
 }
 
 function loadWalkways() {
@@ -152,7 +145,6 @@ function loadWalkways() {
                 mesh.castShadow = true;
                 mesh.receiveShadow = true;
                 campusGroup.add(mesh);
-
             });
         });
 }
@@ -161,10 +153,9 @@ function loadGeoJson(url, options) {
     fetch(url)
         .then(res => res.json())
         .then(data => {
-            // The forEach loop gives us access to each individual "feature"
             data.features.forEach(feature => {
                 const polygons = feature.geometry.type === 'Polygon' ? [feature.geometry.coordinates] : feature.geometry.coordinates;
-                const featureName = feature.properties?.name || feature.properties?.NAME || feature.properties?.building || 'Campus Building';
+                
                 polygons.forEach(polygon => {
                     if (!polygon || !polygon[0] || polygon[0].length < 3) return;
                     const shape = new THREE.Shape();
@@ -175,7 +166,6 @@ function loadGeoJson(url, options) {
 
                     let extrudeSettings;
                     let material;
-                    let buildingInfo = null;
 
                     if (options.isBuilding && Array.isArray(options.materials) && options.materials.length) {
                         const height = Number(feature.properties?.estimated_height) || 10;
@@ -186,14 +176,6 @@ function loadGeoJson(url, options) {
                         const baseMaterial = materialDescriptor.material;
                         material = baseMaterial.clone();
                         material.name = baseMaterial.name;
-
-                        buildingInfo = {
-                            name: featureName,
-                            heightMeters: height,
-                            material: materialDescriptor.label,
-                            colorDescription: materialDescriptor.colorDescription,
-                            textures: materialDescriptor.textures
-                        };
                     } else {
                         extrudeSettings = options.extrudeSettings;
                         material = options.material;
@@ -205,14 +187,6 @@ function loadGeoJson(url, options) {
                     mesh.castShadow = true;
                     mesh.receiveShadow = true;
 
-                    if (buildingInfo) {
-                        mesh.userData.buildingInfo = buildingInfo;
-                        if (mesh.material && mesh.material.emissive) {
-                            mesh.material.emissiveIntensity = 0.2;
-                        }
-                        buildingMeshes.push(mesh);
-                    }
-
                     campusGroup.add(mesh);
                 });
             });
@@ -220,16 +194,37 @@ function loadGeoJson(url, options) {
 }
 
 function loadSplitBuildings() {
-    const totalBuildings = 52;
+    // Get all building files dynamically
+    const buildingFiles = [
+        'building_001.geojson', 'building_101.geojson', 'building_101_classes.geojson', 'building_101_under.geojson',
+        'building_301.geojson', 'building_302.geojson', 'building_303.geojson', 'building_304.geojson', 'building_315.geojson',
+        'building_400.geojson', 'building_803.geojson', 'building_804.geojson', 'building_805.geojson', 'building_806.geojson',
+        'building_807.geojson', 'building_808.geojson', 'building_809.geojson', 'building_810.geojson', 'building_811.geojson',
+        'building_812.geojson', 'building_813.geojson', 'building_816.geojson', 'building_817.geojson', 'building_818.geojson',
+        'building_1001.geojson', 'building_1002.geojson', 'building_dorm1.geojson', 'building_dorm2.geojson', 'building_dorm3.geojson',
+        'building_dorm4.geojson', 'building_dorm5.geojson', 'building_dorm6.geojson', 'building_dorm7.geojson', 'building_dorm8.geojson',
+        'building_dorm9.geojson', 'building_library.geojson', 'building_library1.geojson', 'building_lh1.geojson', 'building_lh2.geojson',
+        'building_cantine.geojson', 'building_cantine_inside.geojson', 'building_conn.geojson', 'building_change_room.geojson',
+        'building_pavillion.geojson', 'building_misc.geojson', 'building_book_shop.geojson', 'building_tech_park.geojson',
+        'building_solar_1.geojson', 'building_solar_2.geojson', 'building_student_service_1.geojson', 'building_student_service_2.geojson',
+        'building_empty.geojson', 'building_idk.geojson'
+    ];
+
     const buildingsPerBatch = 100;
     let loadedCount = 0;
     
     function loadBatch(startIndex) {
-        const endIndex = Math.min(startIndex + buildingsPerBatch, totalBuildings);
+        const endIndex = Math.min(startIndex + buildingsPerBatch, buildingFiles.length);
         const promises = [];
         
         for (let i = startIndex; i < endIndex; i++) {
-            const url = `campus/buildings/building_${i + 1}.geojson`;
+            const fileName = buildingFiles[i];
+            const url = `campus/buildings/${fileName}`;
+            
+            if (!fileName) continue;
+            
+            const buildingName = fileName.replace(/^building_/, '').replace(/\.geojson$/, '');
+            
             promises.push(
                 fetch(url)
                     .then(res => res.json())
@@ -237,7 +232,6 @@ function loadSplitBuildings() {
                         if (data.features && data.features.length > 0) {
                             data.features.forEach(feature => {
                                 const polygons = feature.geometry.type === 'Polygon' ? [feature.geometry.coordinates] : feature.geometry.coordinates;
-                                const featureName = feature.properties?.name || feature.properties?.NAME || feature.properties?.building || `Building ${i + 1}`;
                                 
                                 polygons.forEach(polygon => {
                                     if (!polygon || !polygon[0] || polygon[0].length < 3) return;
@@ -262,34 +256,36 @@ function loadSplitBuildings() {
                                     mesh.castShadow = true;
                                     mesh.receiveShadow = true;
 
-                                    const buildingInfo = {
-                                        name: featureName,
-                                        heightMeters: height,
-                                        material: materialDescriptor.label,
-                                        colorDescription: materialDescriptor.colorDescription,
-                                        textures: materialDescriptor.textures
-                                    };
+                                    // Store building name in mesh userData
+                                    const cleanFileName = fileName.replace(/^building_/, '').replace(/\.geojson$/, '');
+                                    mesh.userData.buildingName = cleanFileName;
+                                    mesh.userData.fileName = cleanFileName;
 
-                                    mesh.userData.buildingInfo = buildingInfo;
+                                    // Register with animator
+                                    buildingAnimator.registerBuilding(cleanFileName, mesh);
+
+                                    // Add emissive for highlighting
                                     if (mesh.material && mesh.material.emissive) {
                                         mesh.material.emissiveIntensity = 0.2;
                                     }
-                                    buildingMeshes.push(mesh);
+
                                     campusGroup.add(mesh);
                                 });
                             });
                         }
                         loadedCount++;
                     })
-                    .catch(err => console.warn(`Failed to load building ${i + 1}:`, err))
+                    .catch(err => console.warn(`Failed to load ${fileName}:`, err))
             );
         }
         
         Promise.all(promises).then(() => {
-            if (loadedCount < totalBuildings) {
+            if (loadedCount < buildingFiles.length) {
                 setTimeout(() => loadBatch(endIndex), 50);
             } else {
                 console.log(`Loaded ${loadedCount} buildings from split files`);
+                // After all buildings loaded, start the timeline
+                startTimeline();
             }
         });
     }
@@ -297,13 +293,88 @@ function loadSplitBuildings() {
     loadBatch(0);
 }
 
+// --- Timeline Control Functions ---
+function handleYearChange(year, animate = true) {
+    console.log('Year changed to:', year);
+    buildingAnimator.showBuildingsUpToYear(year, animate);
+}
+
+function startTimeline() {
+    // Show initial year (2001) with animation
+    buildingAnimator.showBuildingsUpToYear(2001, true);
+}
+
+// --- Interaction ---
+function handlePointerClick(event) {
+    const rect = renderer.domElement.getBoundingClientRect();
+    pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    raycaster.setFromCamera(pointer, camera);
+    const intersects = raycaster.intersectObjects(campusGroup.children, true);
+
+    if (intersects.length > 0) {
+        const mesh = intersects[0].object;
+        const buildingName = mesh.userData.fileName || mesh.userData.buildingName;
+        
+        if (buildingName) {
+            highlightBuilding(mesh);
+            const buildingInfo = buildingAnimator.getBuildingInfo(buildingName);
+            infoPanel.update(buildingName);
+        }
+    } else {
+        highlightBuilding(null);
+        infoPanel.update(null);
+    }
+}
+
+function highlightBuilding(mesh) {
+    if (highlightedBuilding && highlightedBuilding.material?.emissive) {
+        highlightedBuilding.material.emissive.setHex(0x000000);
+    }
+
+    if (mesh?.material?.emissive) {
+        mesh.material.emissive.setHex(0x1a304c);
+        highlightedBuilding = mesh;
+    } else {
+        highlightedBuilding = null;
+    }
+}
+
+renderer.domElement.addEventListener('pointerdown', handlePointerClick);
+
+// --- Animation Loop ---
+let lastTime = 0;
+function animate(currentTime) {
+    requestAnimationFrame(animate);
+    
+    const deltaTime = (currentTime - lastTime) / 1000;
+    lastTime = currentTime;
+
+    // Update building animator
+    buildingAnimator.update(deltaTime);
+
+    // Update controls
+    controls.update();
+    
+    // Render
+    renderer.render(scene, camera);
+}
+
+// --- Window Resize ---
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
 // --- Load All Data ---
 loadWalkways();
 loadGeoJson('data/roads.geojson', { material: roadMaterial, extrudeSettings: { depth: 0.1 }, y_position: 0.01 });
 loadSplitBuildings();
 
+// --- Tree Model Loading (keep existing) ---
 const LOCAL_TREE_URL = 'models/jacaranda_tree_1k.gltf/jacaranda_tree_1k.gltf';
-const FALLBACK_TREE_URL = 'models/jacaranda_tree_1k.gltf/jacaranda_tree_1k.gltf';
 
 function placeTree(treeScene) {
     treeScene.traverse(obj => {
@@ -337,88 +408,11 @@ function loadTreeModel(url, onError) {
 
 loadTreeModel(LOCAL_TREE_URL, () => {
     console.warn('Local Jacaranda tree GLB not found. Falling back to remote sample.');
-    loadTreeModel(FALLBACK_TREE_URL);
 });
 
-const SUN_ORBIT_RADIUS = 420;
-const SUN_SPEED = 0.006;
-let sunAngle = 0.0;
-
-function highlightBuilding(mesh) {
-    if (highlightedBuilding && highlightedBuilding.material?.emissive) {
-        highlightedBuilding.material.emissive.setHex(0x000000);
-    }
-
-    if (mesh?.material?.emissive) {
-        mesh.material.emissive.setHex(0x1a304c);
-        highlightedBuilding = mesh;
-    } else {
-        highlightedBuilding = null;
-    }
-}
-
-function updateInfoPanel(info) {
-    if (!info) {
-        infoPanel.innerHTML = 'Click a building to view material details.';
-        return;
-    }
-
-    const textureList = info.textures
-        .map(path => `<li>${path}</li>`)
-        .join('');
-
-    infoPanel.innerHTML = `
-        <strong>${info.name}</strong><br/>
-        Height: ${info.heightMeters.toFixed(1)} m<br/>
-        Material: ${info.material}<br/>
-        <span style="opacity:0.8">${info.colorDescription}</span>
-        <br/><br/>
-        <strong>Textures</strong>
-        <ul style="margin:4px 0 0 16px; padding:0;">
-            ${textureList}
-        </ul>
-    `;
-}
-
-function handlePointerClick(event) {
-    const rect = renderer.domElement.getBoundingClientRect();
-    pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-    raycaster.setFromCamera(pointer, camera);
-    const intersects = raycaster.intersectObjects(buildingMeshes, true);
-
-    if (intersects.length > 0) {
-        const mesh = intersects[0].object;
-        const info = mesh.userData.buildingInfo;
-        highlightBuilding(mesh);
-        updateInfoPanel(info);
-    } else {
-        highlightBuilding(null);
-        updateInfoPanel(null);
-    }
-}
-
-renderer.domElement.addEventListener('pointerdown', handlePointerClick);
-
-// --- Animation Loop ---
-function animate() {
-  requestAnimationFrame(animate);
-  sunAngle = (sunAngle + SUN_SPEED) % (Math.PI * 2);
-  const sunX = Math.cos(sunAngle) * SUN_ORBIT_RADIUS;
-  const sunY = Math.sin(sunAngle) * SUN_ORBIT_RADIUS;
-  const sunZ = THREE.MathUtils.mapLinear(Math.sin(sunAngle), -1, 1, 80, 260);
-  dirLight.position.set(sunX, sunY, sunZ);
-  dirLight.target.position.set(0, 0, 0);
-  dirLight.target.updateMatrixWorld();
-  dirLightHelper.update();
-
-  controls.update();
-  renderer.render(scene, camera);
-}
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+// --- Start Animation and Intro ---
+introBanner.show(() => {
+    // Start the animation loop
+    animate(0);
+    console.log('SEEU Campus Evolution Timeline Started');
 });
-animate();
