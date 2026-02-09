@@ -29,14 +29,15 @@ campusGroup.rotation.x = -Math.PI / 2;
 
 // --- Camera Setup ---
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
-// Position camera to see entire campus (coordinates are in local space after rotation)
-camera.position.set(0, -300, 200); 
-camera.up.set(0, 0, 1); // Z is up
+// Default camera position showing entire campus
+camera.position.set(80.85, 339.77, -197.06); // Good overview angle
+camera.up.set(0, 1, 0); // World Y is up
+camera.lookAt(80.85, 0, -197.06); // Look at campus center
 
 // --- Controls ---
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
-controls.target.set(0, 0, 0); // Target center of scene
+controls.target.set(80.85, 0, -197.06); // Target campus center
 controls.screenSpacePanning = false;
 controls.enableRotate = true;
 controls.minPolarAngle = 0; // Allow camera to rotate fully above the ground
@@ -94,7 +95,10 @@ let buildingMaterialCursor = 0;
 const introBanner = new IntroBanner();
 const timelineUI = new TimelineUI(
     (year, animate) => handleYearChange(year, animate),
-    (isPlaying) => console.log('Timeline playing:', isPlaying)
+    (isPlaying) => {
+        console.log('Timeline playing:', isPlaying);
+        buildingAnimator.setPaused(!isPlaying);
+    }
 );
 const buildingAnimator = new BuildingAnimator(scene, camera, controls);
 const infoPanel = new BuildingInfoPanel();
@@ -104,7 +108,7 @@ configureTextures();
 const { groundMaterial, roadMaterial, walkwayMaterial, buildingMaterials } = createMaterials();
 
 // --- Environment ---
-scene.fog = new THREE.Fog(0xADD8E6, 100, 600); // Lighter fog for better visibility
+scene.fog = new THREE.Fog(0xADD8E6, 500, 1500); // Light fog - visible only at very far distances
 
 // --- Ground Plane ---
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(2000, 2000), groundMaterial);
@@ -345,17 +349,22 @@ renderer.domElement.addEventListener('pointerdown', handlePointerClick);
 
 // --- Animation Loop ---
 let lastTime = 0;
+let frameCount = 0;
 function animate(currentTime) {
     requestAnimationFrame(animate);
     
     const deltaTime = (currentTime - lastTime) / 1000;
     lastTime = currentTime;
 
-    // Update building animator
-    buildingAnimator.update(deltaTime);
-
     // Update controls
     controls.update();
+    
+    // Debug: Log camera position every 60 frames (approx 1 second)
+    frameCount++;
+    if (frameCount % 60 === 0) {
+        console.log(`Camera Position: [${camera.position.x.toFixed(2)}, ${camera.position.y.toFixed(2)}, ${camera.position.z.toFixed(2)}]`);
+        console.log(`Camera Target: [${controls.target.x.toFixed(2)}, ${controls.target.y.toFixed(2)}, ${controls.target.z.toFixed(2)}]`);
+    }
     
     // Render
     renderer.render(scene, camera);

@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { BUILDING_TIMELINE, BUILDING_INFO } from './buildingData.js';
-import { DustParticles } from './dustParticles.js';
 
 export class BuildingAnimator {
   constructor(scene, camera, controls) {
@@ -10,19 +9,21 @@ export class BuildingAnimator {
     this.buildingMeshes = new Map(); // buildingName -> mesh[]
     this.animationQueue = [];
     this.isAnimating = false;
-    
-    this.dustParticles = new DustParticles(scene);
-    this.lastCameraReturnTime = 0;
-    this.originalCameraPosition = null;
-    this.originalCameraTarget = null;
-    
-    this.setupReturnTimer();
+    this.isPaused = false; // Pause state
   }
 
-  setupReturnTimer() {
-    // Store original camera position
-    this.originalCameraPosition = this.camera.position.clone();
-    this.originalCameraTarget = this.controls.target.clone();
+  setPaused(paused) {
+    this.isPaused = paused;
+    if (paused) {
+      // When paused, complete current building animation but don't start new ones
+      console.log('Building animator paused');
+    } else {
+      console.log('Building animator resumed');
+      // Resume processing queue if there are pending animations
+      if (this.animationQueue.length > 0 && !this.isAnimating) {
+        this.processAnimationQueue();
+      }
+    }
   }
 
   registerBuilding(name, mesh) {
@@ -46,9 +47,22 @@ export class BuildingAnimator {
       }
     }
 
-    // Hide buildings beyond current year
+    // Track which buildings are NEW (weren't visible before)
+    const newBuildings = [];
+    const visibleBuildings = [];
+    
     for (const [name, meshes] of this.buildingMeshes) {
-      if (!buildingsToShow.includes(name)) {
+      if (buildingsToShow.includes(name)) {
+        // Building should be visible
+        visibleBuildings.push(name);
+        
+        // Check if it's already visible
+        const isAlreadyVisible = meshes.some(mesh => mesh.visible && mesh.scale.x > 0.9);
+        if (!isAlreadyVisible) {
+          newBuildings.push(name);
+        }
+      } else {
+        // Hide buildings beyond current year
         meshes.forEach(mesh => {
           mesh.visible = false;
           mesh.scale.set(0, 0, 0);
@@ -57,10 +71,11 @@ export class BuildingAnimator {
     }
 
     if (animate) {
-      this.animateBuildings(buildingsToShow, year);
+      // Only animate NEW buildings, keep already-visible ones as they are
+      this.animateBuildings(newBuildings, year);
     } else {
       // Instant visibility (for jumping)
-      buildingsToShow.forEach(name => {
+      visibleBuildings.forEach(name => {
         const meshes = this.buildingMeshes.get(name);
         if (meshes) {
           meshes.forEach(mesh => {
@@ -104,10 +119,17 @@ export class BuildingAnimator {
       return;
     }
 
+    // If paused, don't start new building animations
+    // But continue processing current animations
     const currentTime = Date.now();
     
     for (let i = this.animationQueue.length - 1; i >= 0; i--) {
       const anim = this.animationQueue[i];
+      
+      // If paused and animation hasn't started yet, skip it
+      if (!anim.startTime && this.isPaused) {
+        continue;
+      }
       
       if (!anim.startTime) {
         // Check if it's time to start this animation
@@ -150,16 +172,6 @@ export class BuildingAnimator {
     anim.startPos.z = -buildingHeight; // Start below ground
     anim.mesh.position.copy(anim.startPos);
     anim.mesh.scale.set(0, 0, 0);
-    
-    // Create dust cloud at building base (in world coordinates)
-    this.dustParticles.createCloud({
-      x: anim.endPos.x,
-      y: anim.endPos.y,
-      z: 0.5 // Slightly above ground
-    }, 15);
-    
-    // Focus camera on this building
-    this.focusCameraOnBuilding(anim.mesh);
   }
 
   updateBuildingAnimation(anim, progress) {
@@ -181,85 +193,6 @@ export class BuildingAnimator {
     }
   }
 
-  easeOutBack(t) {
-    const c1 = 1.70158;
-    const c3 = c1 + 1;
-    return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
-  }
-
-  focusCameraOnBuilding(mesh) {
-    // Get building bounding box in world space
-    const box = new THREE.Box3().setFromObject(mesh);
-    const center = box.getCenter(new THREE.Vector3());
-    const size = box.getSize(new THREE.Vector3());
-    
-    // Calculate distance based on building size
-    const maxDim = Math.max(Math.abs(size.x), Math.abs(size.y));
-    const distance = Math.max(maxDim * 3, 50);
-    
-    // Position camera above and in front of building
-    const targetPosition = new THREE.Vector3(
-      center.x,
-      center.y - distance,
-      center.z + distance * 0.6
-    );
-    
-    // Smooth camera transition
-    this.animateCameraTo(targetPosition, center);
-    
-    // Store return time
-    this.lastCameraReturnTime = Date.now();
-  }
-
-  animateCameraTo(position, target, duration = 3000) {
-    const startPos = this.camera.position.clone();
-    const startTarget = this.controls.target.clone();
-    const startTime = Date.now();
-    
-    const animateCamera = () => {
-      const elapsed = Date.now() - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      const easeProgress = this.easeInOutCubic(progress);
-      
-      this.camera.position.lerpVectors(startPos, position, easeProgress);
-      this.controls.target.lerpVectors(startTarget, target, easeProgress);
-      this.controls.update();
-      
-      if (progress < 1) {
-        requestAnimationFrame(animateCamera);
-      }
-    };
-    
-    animateCamera();
-  }
-
-  easeInOutCubic(t) {
-    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-  }
-
-  resetCameraToOverview() {
-    // Return to full campus view
-    this.animateCameraTo(
-      new THREE.Vector3(0, -300, 200), // Overview position
-      new THREE.Vector3(0, 0, 0),      // Look at center
-      2000
-    );
-  }
-
-  update(deltaTime) {
-    // Update dust particles
-    this.dustParticles.update(deltaTime);
-    
-    // Check if we should return to overview camera
-    if (this.lastCameraReturnTime > 0) {
-      const timeSinceFocus = Date.now() - this.lastCameraReturnTime;
-      if (timeSinceFocus > 5000) { // 5 seconds
-        this.resetCameraToOverview();
-        this.lastCameraReturnTime = 0;
-      }
-    }
-  }
-
   getBuildingInfo(buildingName) {
     const year = Object.entries(BUILDING_TIMELINE).find(([year, buildings]) => 
       buildings.includes(buildingName)
@@ -273,7 +206,6 @@ export class BuildingAnimator {
   }
 
   dispose() {
-    this.dustParticles.dispose();
     this.buildingMeshes.clear();
     this.animationQueue = [];
     this.isAnimating = false;

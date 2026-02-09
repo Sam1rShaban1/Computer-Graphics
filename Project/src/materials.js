@@ -129,14 +129,14 @@ export function createMaterials() {
         roughnessMap: walkwayTextures.roughness
     });
 
-    // Building Materials (force matte plaster appearance)
+    // Building Materials (light blue plaster appearance)
     const plasterFacadeMaterial = new THREE.MeshStandardMaterial({
         map: buildingTextures.diffuse,
         normalMap: buildingTextures.normal,
         displacementMap: buildingTextures.displacement,
         displacementScale: 0.01,
-        // Use uniform roughness to avoid glossy look from a possibly inverted roughnessMap
-        roughness: 0.95,
+        color: 0x87CEEB, // Light blue color tint
+        roughness: 0.9,
         metalness: 0.0,
         envMapIntensity: 0.0
     });
@@ -150,7 +150,7 @@ export function createMaterials() {
                 'textures/plastered_wall_05_2k.blend/textures/plastered_wall_05_diff_2k.jpg',
                 'textures/plastered_wall_05_2k.blend/textures/plastered_wall_05_nor_gl_2k.exr'
             ],
-            colorDescription: 'Neutral plaster with subtle roughness.'
+            colorDescription: 'Light blue plaster facade.'
         }
     ];
 
