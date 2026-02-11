@@ -77,7 +77,7 @@ export const TIMELINE_YEARS = [2001, 2005, 2007, 2010, 2013, 2016, 2019, 2022, 2
 
 // Building metadata
 export const BUILDING_INFO = {
-  '001': { name: 'Main Administration Building', description: 'Original campus anchor' },
+  '001': { name: 'Entry Building', description: 'Campus Entry Point' },
   'library': { name: 'Main Library', description: 'Original campus library' },
   'cantine': { name: 'Main Dining Hall', description: 'Original cafeteria' },
   '101': { name: 'Business Education Centre', description: 'Inaugurated 2007' },

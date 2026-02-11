@@ -19,10 +19,7 @@ export class BuildingAnimator {
       console.log('Building animator paused');
     } else {
       console.log('Building animator resumed');
-      // Resume processing queue if there are pending animations
-      if (this.animationQueue.length > 0 && !this.isAnimating) {
-        this.processAnimationQueue();
-      }
+      // Animation processing is now handled by update() method called from main loop
     }
   }
 
@@ -110,51 +107,51 @@ export class BuildingAnimator {
     });
 
     this.isAnimating = true;
-    this.processAnimationQueue();
   }
 
-  processAnimationQueue() {
-    if (!this.isAnimating || this.animationQueue.length === 0) {
-      this.isAnimating = false;
-      return;
-    }
+  update(deltaTime) {
+    if (!this.isAnimating) return;
 
-    // If paused, don't start new building animations
-    // But continue processing current animations
-    const currentTime = Date.now();
-    
     for (let i = this.animationQueue.length - 1; i >= 0; i--) {
       const anim = this.animationQueue[i];
-      
-      // If paused and animation hasn't started yet, skip it
-      if (!anim.startTime && this.isPaused) {
-        continue;
-      }
-      
+
       if (!anim.startTime) {
-        // Check if it's time to start this animation
+        if (this.isPaused) continue;
+
+        anim.delay -= deltaTime * 1000;
         if (anim.delay <= 0) {
-          anim.startTime = currentTime;
+          anim.startTime = Date.now();
           this.startBuildingAnimation(anim);
-        } else {
-          anim.delay -= 16; // Approximate frame time
         }
         continue;
       }
 
-      const elapsed = currentTime - anim.startTime;
+      const elapsed = Date.now() - anim.startTime;
       const progress = Math.min(elapsed / anim.duration, 1);
-      
+
       if (progress >= 1) {
-        // Animation complete
+        anim.mesh.scale.set(1, 1, 1);
+        anim.mesh.position.z = anim.endPos.z;
+        anim.mesh.rotation.x = 0;
         this.animationQueue.splice(i, 1);
       } else {
-        // Update animation
-        this.updateBuildingAnimation(anim, progress);
+        const easeProgress = this.easeOutBack(progress);
+        const scale = easeProgress;
+        anim.mesh.scale.set(scale, scale, scale);
+
+        const totalHeight = Math.abs(anim.startPos.z - anim.endPos.z);
+        const currentHeight = totalHeight * easeProgress;
+        anim.mesh.position.z = anim.startPos.z + currentHeight;
+
+        if (progress < 0.5) {
+          anim.mesh.rotation.x = Math.sin(progress * Math.PI * 2) * 0.05 * (1 - progress * 2);
+        }
       }
     }
 
-    requestAnimationFrame(() => this.processAnimationQueue());
+    if (this.animationQueue.length === 0) {
+      this.isAnimating = false;
+    }
   }
 
   startBuildingAnimation(anim) {
@@ -174,24 +171,13 @@ export class BuildingAnimator {
     anim.mesh.scale.set(0, 0, 0);
   }
 
-  updateBuildingAnimation(anim, progress) {
-    // Smooth easing
-    const easeProgress = this.easeOutBack(progress);
-    
-    // Animate scale from 0 to 1
-    const scale = easeProgress;
-    anim.mesh.scale.set(scale, scale, scale);
-    
-    // Animate position from below ground to final position
-    const totalHeight = Math.abs(anim.startPos.z - anim.endPos.z);
-    const currentHeight = totalHeight * easeProgress;
-    anim.mesh.position.z = anim.startPos.z + currentHeight;
-    
-    // Add slight wobble for realistic settling effect
-    if (progress < 0.5) {
-      anim.mesh.rotation.x = Math.sin(progress * Math.PI * 2) * 0.05 * (1 - progress * 2);
-    }
+  easeOutBack(t) {
+    const c1 = 1.70158;
+    const c3 = c1 + 1;
+    return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
   }
+
+
 
   getBuildingInfo(buildingName) {
     const year = Object.entries(BUILDING_TIMELINE).find(([year, buildings]) => 

@@ -185,3 +185,60 @@ if (mesh.material?.emissive) {
 - Enable on both casters and receivers
 
 This project follows Three.js best practices for performance and maintainability while providing an interactive 3D campus visualization experience.
+
+## New System Modules (2025+)
+
+### Ground System (`src/groundSystem.js`)
+- Infinite procedural grass with view-dependent visibility
+- Shader-based rendering for performance
+- 2000x2000 unit ground plane with distance-based detail
+
+### Procedural Nature (`src/proceduralNature.js`)
+- Instanced mesh rendering for 5000+ trees
+- Noise-based tree placement
+- Seasonal color changes based on timeline
+- Bushes and vegetation clusters
+
+### Dynamic Lighting (`src/dynamicLighting.js`)
+- Time-of-day cycling (60 seconds per full day)
+- Sun position and color temperature changes
+- Moon light for nighttime
+- Hemisphere lighting for ambient
+
+### Camera Controller (`src/cameraController.js`)
+- Smooth camera transitions between viewpoints
+- Preset camera positions (overview, aerial, entrance, library)
+- Cinematic easing functions
+- Focus-on-building functionality
+
+### Minimap UI (`src/minimapUI.js`)
+- Real-time radar-style campus overview
+- Building type color coding
+- Camera position and direction indicator
+- Interactive campus navigation
+
+### Timeline UI (`src/timelineUI.js`)
+- Year-by-year campus evolution control
+- Auto-play with configurable speed
+- Instant jump vs animated transitions
+- Play/pause functionality
+
+### Building Animator (`src/buildingAnimator.js`)
+- Construction animation (scale + rise from ground)
+- Building state management
+- Sequential animation queue
+- Pause/resume support
+
+## Performance Targets
+
+### Desktop (60 FPS)
+- 5000+ instanced trees
+- 50+ animated buildings
+- Dynamic lighting and shadows
+- Full camera controls
+
+### Mobile (24 FPS)
+- Reduced tree count (2000)
+- Simplified shadows
+- LOD building system
+- Optimized shaders
