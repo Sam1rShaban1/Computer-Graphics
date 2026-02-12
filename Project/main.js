@@ -15,6 +15,7 @@ import { GroundSystem } from './src/groundSystem.js';
 import { ProceduralNature } from './src/proceduralNature.js';
 import { DynamicLighting } from './src/dynamicLighting.js';
 import { CameraController } from './src/cameraController.js';
+import { CampusInfrastructure } from './src/campusInfrastructure.js';
 import { BUILDING_TIMELINE, BUILDING_INFO, TIMELINE_YEARS } from './src/buildingData.js';
 
 // Renderer Setup
@@ -34,9 +35,12 @@ renderer.setClearColor(0x87CEEB, 1);
 
 // Camera Setup - Z is up in world space
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 5000);
-camera.position.set(200, 150, 80);
+camera.position.set(228.64, -46.08, 188.02);
 camera.up.set(0, 0, 1);
-camera.lookAt(0, 0, 0);
+
+// Camera looks at building 303 location
+const building303Target = new THREE.Vector3(138.01, 116.83, 2.50);
+camera.lookAt(building303Target);
 
 // Controls
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -46,7 +50,7 @@ controls.screenSpacePanning = false;
 controls.minDistance = 50;
 controls.maxDistance = 1000;
 controls.maxPolarAngle = Math.PI * 0.8;
-controls.target.set(0, 0, 0);
+controls.target.copy(building303Target);
 controls.update();
 
 // Log camera position for reference
@@ -59,6 +63,11 @@ function logCameraPosition() {
             `y: ${camera.position.y.toFixed(2)}, ` +
             `z: ${camera.position.z.toFixed(2)}`
         );
+        console.log('Camera looking at:',
+            `x: ${controls.target.x.toFixed(2)}, ` +
+            `y: ${controls.target.y.toFixed(2)}, ` +
+            `z: ${controls.target.z.toFixed(2)}`
+        );
     }
 }
 
@@ -66,6 +75,7 @@ function logCameraPosition() {
 const introBanner = new IntroBanner();
 const groundSystem = new GroundSystem(scene);
 const proceduralNature = new ProceduralNature(scene);
+const campusInfrastructure = new CampusInfrastructure(scene);
 const dynamicLighting = new DynamicLighting(scene, camera);
 const cameraController = new CameraController(camera, controls);
 const timelineUI = new TimelineUI(
@@ -85,9 +95,20 @@ scene.add(ground);
 // Lighting
 dynamicLighting.setup();
 
+// Load walkways and roads
+async function loadInfrastructure() {
+    await campusInfrastructure.loadInfrastructure();
+}
+loadInfrastructure();
+
 // Trees
-const trees = proceduralNature.createForest();
-scene.add(trees);
+async function loadTrees() {
+    console.log('Loading trees...');
+    const trees = await proceduralNature.createForest();
+    scene.add(trees);
+    console.log('Trees added to scene');
+}
+loadTrees();
 
 // Load Buildings
 loadBuildings();

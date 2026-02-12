@@ -43,11 +43,6 @@ export class DynamicLighting {
         
         // Update initial state
         this.updateTime();
-        
-        console.log('Lights setup - sun intensity:', this.sun.intensity);
-        console.log('Lights setup - hemi intensity:', this.hemiLight.intensity);
-        console.log('Lights setup - scene children count:', this.scene.children.length);
-        
         return {
             sun: this.sun,
             moon: this.moon,
@@ -88,9 +83,6 @@ export class DynamicLighting {
         // Update sun target
         this.sun.target.position.set(0, 0, 0);
         this.sun.target.updateMatrixWorld();
-        
-        console.log('Lighting update - sun active:', this.sun.intensity > 0);
-        console.log('Lighting update - hemi active:', this.hemiLight.intensity);
     }
     
     setAutoPlay(isPlaying) {
