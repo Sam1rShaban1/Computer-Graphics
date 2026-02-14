@@ -8,14 +8,10 @@ export class CampusInfrastructure {
     }
     
     async loadInfrastructure() {
-        console.log('Loading campus infrastructure...');
-        
         await Promise.all([
             this.loadWalkways(),
             this.loadRoads()
         ]);
-        
-        console.log('Campus infrastructure loaded successfully');
     }
     
     async loadWalkways() {
@@ -28,6 +24,8 @@ export class CampusInfrastructure {
             cobbleTexture.wrapS = THREE.RepeatWrapping;
             cobbleTexture.wrapT = THREE.RepeatWrapping;
             cobbleTexture.repeat.set(10, 10);
+            cobbleTexture.anisotropy = 8;
+            cobbleTexture.colorSpace = THREE.SRGBColorSpace;
             
             const material = new THREE.MeshStandardMaterial({
                 map: cobbleTexture,
@@ -38,15 +36,15 @@ export class CampusInfrastructure {
             
             const walkwayGroup = new THREE.Group();
             
-            data.features.forEach(feature => {
+            data.features.forEach((feature, index) => {
                 const coords = feature.geometry.coordinates[0];
                 if (coords && coords.length >= 3) {
                     const shape = new THREE.Shape();
                     
-                    coords.forEach((coord, index) => {
+                    coords.forEach((coord, i) => {
                         const [lon, lat] = coord;
                         const [x, y] = this.projectCoord(lon, lat);
-                        if (index === 0) {
+                        if (i === 0) {
                             shape.moveTo(x, y);
                         } else {
                             shape.lineTo(x, y);
@@ -54,17 +52,19 @@ export class CampusInfrastructure {
                     });
                     
                     const geometry = new THREE.ShapeGeometry(shape);
-                    geometry.rotateX(Math.PI / 2);
                     
-                    const mesh = new THREE.Mesh(geometry, material);
+                    const mesh = new THREE.Mesh(geometry, material); // Same material for all
+                    mesh.position.z = 0.1; // Slightly above ground to prevent z-fighting
                     mesh.receiveShadow = true;
+                    mesh.castShadow = false;
                     walkwayGroup.add(mesh);
+                } else {
+                    console.warn('Walkway feature', index, 'has invalid coordinates');
                 }
             });
             
             this.walkways = walkwayGroup;
             this.scene.add(walkwayGroup);
-            console.log('Walkways loaded');
             
         } catch (error) {
             console.warn('Failed to load walkways:', error);
@@ -81,6 +81,7 @@ export class CampusInfrastructure {
             asphaltTexture.wrapS = THREE.RepeatWrapping;
             asphaltTexture.wrapT = THREE.RepeatWrapping;
             asphaltTexture.repeat.set(20, 20);
+            asphaltTexture.anisotropy = 16;
             
             const material = new THREE.MeshStandardMaterial({
                 map: asphaltTexture,
@@ -91,15 +92,15 @@ export class CampusInfrastructure {
             
             const roadGroup = new THREE.Group();
             
-            data.features.forEach(feature => {
+            data.features.forEach((feature, index) => {
                 const coords = feature.geometry.coordinates[0];
                 if (coords && coords.length >= 3) {
                     const shape = new THREE.Shape();
                     
-                    coords.forEach((coord, index) => {
+                    coords.forEach((coord, i) => {
                         const [lon, lat] = coord;
                         const [x, y] = this.projectCoord(lon, lat);
-                        if (index === 0) {
+                        if (i === 0) {
                             shape.moveTo(x, y);
                         } else {
                             shape.lineTo(x, y);
@@ -107,17 +108,19 @@ export class CampusInfrastructure {
                     });
                     
                     const geometry = new THREE.ShapeGeometry(shape);
-                    geometry.rotateX(Math.PI / 2);
                     
                     const mesh = new THREE.Mesh(geometry, material);
+                    mesh.position.z = 0.05; // Slightly above ground
                     mesh.receiveShadow = true;
+                    mesh.castShadow = false;
                     roadGroup.add(mesh);
+                } else {
+                    console.warn('Road feature', index, 'has invalid coordinates');
                 }
             });
             
             this.roads = roadGroup;
             this.scene.add(roadGroup);
-            console.log('Roads loaded');
             
         } catch (error) {
             console.warn('Failed to load roads:', error);

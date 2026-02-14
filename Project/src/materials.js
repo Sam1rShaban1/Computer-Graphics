@@ -36,8 +36,6 @@ export const walkwayTextures = {
     diffuse: textureLoader.load('textures/concrete_pavers_2k.blend/textures/concrete_pavers_diff_2k.jpg')
 };
 
-const cacheBust = Date.now(); // Force cache refresh
-
 // Building Facade Textures
 export const buildingTextures = {
     normal: textureLoader.load('textures/plastered_wall_05_2k.blend/textures/plastered_wall_05_nor_gl_2k.exr'),
@@ -63,6 +61,7 @@ export function configureTextures() {
         tex.repeat.set(800, 800);
         tex.anisotropy = 16;
     });
+    groundTextures.diffuse.colorSpace = THREE.SRGBColorSpace;
 
     // Cobblestone textures
     Object.values(cobbleTextures).forEach(tex => {
@@ -71,25 +70,28 @@ export function configureTextures() {
         tex.repeat.set(2, 2);
         tex.anisotropy = 16;
     });
-    cobbleTextures.diffuse.anisotropy = 16;
+    cobbleTextures.diffuse.colorSpace = THREE.SRGBColorSpace;
 
     // Asphalt textures
     asphaltTextures.normal.wrapS = THREE.RepeatWrapping;
     asphaltTextures.normal.wrapT = THREE.RepeatWrapping;
     asphaltTextures.normal.repeat.set(2, 2);
     asphaltTextures.normal.anisotropy = 16;
+    asphaltTextures.diffuse.colorSpace = THREE.SRGBColorSpace;
 
     // Walkway textures
     walkwayTextures.normal.wrapS = THREE.RepeatWrapping;
     walkwayTextures.normal.wrapT = THREE.RepeatWrapping;
     walkwayTextures.normal.repeat.set(2, 2);
     walkwayTextures.normal.anisotropy = 16;
+    walkwayTextures.diffuse.colorSpace = THREE.SRGBColorSpace;
 
     // Building textures
     buildingTextures.normal.wrapS = THREE.RepeatWrapping;
     buildingTextures.normal.wrapT = THREE.RepeatWrapping;
     buildingTextures.normal.repeat.set(2, 2);
     buildingTextures.normal.anisotropy = 16;
+    buildingTextures.diffuse.colorSpace = THREE.SRGBColorSpace;
 
     // Glass textures
     Object.values(glassTextures).forEach(tex => {
@@ -98,6 +100,7 @@ export function configureTextures() {
         tex.repeat.set(1, 1);
         tex.anisotropy = 8;
     });
+    glassTextures.diffuse.colorSpace = THREE.SRGBColorSpace;
 }
 
 // Create materials

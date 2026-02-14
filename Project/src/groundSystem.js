@@ -8,15 +8,17 @@ export class GroundSystem {
     }
     
     createGround() {
-        // Ground plane sized for campus - 600x600 units
-        const geometry = new THREE.PlaneGeometry(600, 600, 200, 200);
+        // Ground plane sized for campus - 1200x1200 units
+        const geometry = new THREE.PlaneGeometry(1200, 1200, 1, 1); // No subdivisions needed
         
         // Load grass texture with proper loading
         const textureLoader = new THREE.TextureLoader();
         const grassTexture = textureLoader.load('/textures/grass.jpg');
         grassTexture.wrapS = THREE.RepeatWrapping;
         grassTexture.wrapT = THREE.RepeatWrapping;
-        grassTexture.repeat.set(400, 400);
+        grassTexture.repeat.set(75, 75); // Reduced from 400 for performance
+        grassTexture.anisotropy = 8; // Reduced from 16
+        grassTexture.colorSpace = THREE.SRGBColorSpace;
         
         const material = new THREE.MeshStandardMaterial({
             map: grassTexture,
@@ -26,9 +28,8 @@ export class GroundSystem {
         });
         
         this.ground = new THREE.Mesh(geometry, material);
-        // Ground plane centered at origin, rotated to be horizontal
-        this.ground.rotation.x = -Math.PI / 2;
-        this.ground.position.set(0, 0, 0);
+        // No rotation - PlaneGeometry already horizontal in XY plane for Z-up system
+        this.ground.position.set(0, 300, 0);
         this.ground.receiveShadow = true;
         this.ground.castShadow = false;
         

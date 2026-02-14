@@ -3,8 +3,13 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { EXRLoader } from 'three/examples/jsm/loaders/EXRLoader.js';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
+import { VignetteShader } from 'three/addons/shaders/VignetteShader.js';
+import { GammaCorrectionShader } from 'three/addons/shaders/GammaCorrectionShader.js';
 
 // Import new systems
 import { IntroBanner } from './src/introBanner.js';
@@ -19,7 +24,10 @@ import { CampusInfrastructure } from './src/campusInfrastructure.js';
 import { BUILDING_TIMELINE, BUILDING_INFO, TIMELINE_YEARS } from './src/buildingData.js';
 
 // Renderer Setup
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+const renderer = new THREE.WebGLRenderer({ 
+    alpha: true,
+    powerPreference: 'high-performance'
+});
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
@@ -35,7 +43,7 @@ renderer.setClearColor(0x87CEEB, 1);
 
 // Camera Setup - Z is up in world space
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 5000);
-camera.position.set(228.64, -46.08, 188.02);
+camera.position.set(98.00, -49.08, 176.24);
 camera.up.set(0, 0, 1);
 
 // Camera looks at building 303 location
@@ -49,28 +57,41 @@ controls.dampingFactor = 0.05;
 controls.screenSpacePanning = false;
 controls.minDistance = 50;
 controls.maxDistance = 1000;
-controls.maxPolarAngle = Math.PI * 0.8;
+controls.maxPolarAngle = Math.PI * 0.52; // Allow lower camera angle
+controls.minPolarAngle = 0.05;
 controls.target.copy(building303Target);
 controls.update();
 
-// Log camera position for reference
-let frameCount = 0;
-function logCameraPosition() {
-    frameCount++;
-    if (frameCount % 60 === 0) { // Log every 60 frames (approximately 1 second)
-        console.log('Camera position:', 
-            `x: ${camera.position.x.toFixed(2)}, ` +
-            `y: ${camera.position.y.toFixed(2)}, ` +
-            `z: ${camera.position.z.toFixed(2)}`
-        );
-        console.log('Camera looking at:',
-            `x: ${controls.target.x.toFixed(2)}, ` +
-            `y: ${controls.target.y.toFixed(2)}, ` +
-            `z: ${controls.target.z.toFixed(2)}`
-        );
-    }
-}
+// Post-processing Setup
+const composer = new EffectComposer(renderer);
 
+// Render pass
+const renderPass = new RenderPass(scene, camera);
+composer.addPass(renderPass);
+
+// Bloom pass - optimized settings
+const bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(window.innerWidth, window.innerHeight),
+    0.25,  // slightly lower strength
+    0.4,   // radius
+    0.9    // higher threshold = less bloom
+);
+composer.addPass(bloomPass);
+
+// Vignette pass - cinematic edges
+const vignettePass = new ShaderPass(VignetteShader);
+vignettePass.uniforms['offset'].value = 0.95;
+vignettePass.uniforms['darkness'].value = 1.0;
+composer.addPass(vignettePass);
+
+// Gamma correction
+const gammaPass = new ShaderPass(GammaCorrectionShader);
+composer.addPass(gammaPass);
+
+// FXAA - anti-aliasing
+const fxaaPass = new ShaderPass(FXAAShader);
+fxaaPass.uniforms['resolution'].value.set(1 / window.innerWidth, 1 / window.innerHeight);
+composer.addPass(fxaaPass);
 // Initialize Systems
 const introBanner = new IntroBanner();
 const groundSystem = new GroundSystem(scene);
@@ -81,11 +102,10 @@ const cameraController = new CameraController(camera, controls);
 const timelineUI = new TimelineUI(
     (year, animate) => handleYearChange(year, animate),
     (isPlaying) => {
-        console.log('Timeline playing:', isPlaying);
         cameraController.setAutoPlay(isPlaying);
     }
 );
-const buildingAnimator = new BuildingAnimator(scene, camera, controls);
+const buildingAnimator = new BuildingAnimator(scene);
 const infoPanel = new BuildingInfoPanel();
 
 // Ground with grass texture
@@ -99,24 +119,39 @@ dynamicLighting.setup();
 async function loadInfrastructure() {
     await campusInfrastructure.loadInfrastructure();
 }
-loadInfrastructure();
 
 // Trees
 async function loadTrees() {
-    console.log('Loading trees...');
     const trees = await proceduralNature.createForest();
     scene.add(trees);
-    console.log('Trees added to scene');
 }
-loadTrees();
 
 // Load Buildings
 loadBuildings();
+
+// Start loading immediately while banner is shown
+const infrastructurePromise = loadInfrastructure();
+const treesPromise = loadTrees();
+
+// Show banner - wait for user click
+introBanner.show(async () => {
+    // Wait for assets to finish loading
+    await Promise.all([infrastructurePromise, treesPromise]);
+    
+    animate(0);
+    console.log('SEEU Campus Evolution System Started');
+});
 
 // Raycasting
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 let highlightedBuilding = null;
+const raycastableObjects = [];
+
+// Register buildings for raycasting
+function registerRaycastable(mesh) {
+    raycastableObjects.push(mesh);
+}
 
 // Handle Click
 function handlePointerClick(event) {
@@ -125,7 +160,7 @@ function handlePointerClick(event) {
     pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
     raycaster.setFromCamera(pointer, camera);
-    const intersects = raycaster.intersectObjects(scene.children, true);
+    const intersects = raycaster.intersectObjects(raycastableObjects, true);
 
     if (intersects.length > 0) {
         const mesh = intersects[0].object;
@@ -133,7 +168,6 @@ function handlePointerClick(event) {
         
         if (buildingName) {
             highlightBuilding(mesh);
-            const buildingInfo = buildingAnimator.getBuildingInfo(buildingName);
             infoPanel.update(buildingName);
             cameraController.focusOnBuilding(mesh);
         }
@@ -144,10 +178,20 @@ function handlePointerClick(event) {
 }
 
 function highlightBuilding(mesh) {
-    if (highlightedBuilding && highlightedBuilding.material?.emissive) {
-        highlightedBuilding.material.emissive.setHex(0x000000);
+    // Restore previous building's emissive
+    if (highlightedBuilding) {
+        const originalEmissive = highlightedBuilding.userData.originalEmissive;
+        if (originalEmissive !== undefined) {
+            highlightedBuilding.material.emissive.setHex(originalEmissive);
+        } else {
+            highlightedBuilding.material.emissive.setHex(0x000000);
+        }
     }
+    
     if (mesh?.material?.emissive) {
+        // Save original emissive
+        mesh.userData.originalEmissive = mesh.material.emissive.getHex();
+        // Set highlight
         mesh.material.emissive.setHex(0x1a304c);
         highlightedBuilding = mesh;
     } else {
@@ -159,7 +203,6 @@ renderer.domElement.addEventListener('pointerdown', handlePointerClick);
 
 // Year Change Handler
 function handleYearChange(year, animate = true) {
-    console.log('Year changed to:', year);
     buildingAnimator.showBuildingsUpToYear(year, animate);
     dynamicLighting.setYear(year);
 }
@@ -186,7 +229,6 @@ function loadBuildings() {
     
     function loadNext() {
         if (loaded >= total) {
-            console.log(`All ${total} buildings loaded`);
             startTimeline();
             return;
         }
@@ -214,6 +256,15 @@ function loadBuildings() {
 function processBuildingData(data, fileName) {
     const buildingName = fileName.replace(/^building_/, '').replace(/\.geojson$/, '');
     
+    // Determine building year from timeline data
+    let buildingYear = 2026;
+    for (const [year, buildings] of Object.entries(BUILDING_TIMELINE)) {
+        if (buildings.includes(buildingName)) {
+            buildingYear = parseInt(year);
+            break;
+        }
+    }
+    
     if (!data.features || data.features.length === 0) return;
     
     data.features.forEach(feature => {
@@ -239,7 +290,9 @@ function processBuildingData(data, fileName) {
             mesh.receiveShadow = true;
             
             mesh.userData.buildingName = buildingName;
+            mesh.userData.buildingYear = buildingYear;
             buildingAnimator.registerBuilding(buildingName, mesh);
+            registerRaycastable(mesh);
             
             scene.add(mesh);
         });
@@ -264,9 +317,7 @@ function createBuildingMaterial(buildingName) {
     return new THREE.MeshStandardMaterial({
         color: color,
         roughness: 0.7,
-        metalness: 0.1,
-        emissive: 0x000000,
-        emissiveIntensity: 0.1
+        metalness: 0.1
     });
 }
 
@@ -280,7 +331,7 @@ let lastTime = 0;
 function animate(currentTime) {
     requestAnimationFrame(animate);
     
-    const deltaTime = (currentTime - lastTime) / 1000;
+    const deltaTime = Math.min((currentTime - lastTime) / 1000, 0.1); // Cap at 100ms
     lastTime = currentTime;
     
     // Update systems
@@ -288,21 +339,34 @@ function animate(currentTime) {
     cameraController.update(deltaTime);
     buildingAnimator.update(deltaTime);
     
-    // Update controls
+    // Update orbit controls
     controls.update();
     
-    // Log camera position every second
-    logCameraPosition();
+    // Prevent camera from going below ground
+    if (camera.position.z < 2) {
+        camera.position.z = 2;
+    }
     
-    // Render
-    renderer.render(scene, camera);
+    // Render with post-processing
+    composer.render();
 }
 
 // Window Resize
 window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    
+    camera.aspect = width / height;
     camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    
+    renderer.setSize(width, height);
+    composer.setSize(width, height);
+    
+    // Update FXAA resolution
+    fxaaPass.uniforms['resolution'].value.set(1 / width, 1 / height);
+    
+    // Update bloom resolution
+    bloomPass.resolution.set(width, height);
 });
 
 // Start

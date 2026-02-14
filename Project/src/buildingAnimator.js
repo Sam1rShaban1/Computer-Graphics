@@ -2,24 +2,20 @@ import * as THREE from 'three';
 import { BUILDING_TIMELINE, BUILDING_INFO } from './buildingData.js';
 
 export class BuildingAnimator {
-  constructor(scene, camera, controls) {
+  constructor(scene) {
     this.scene = scene;
-    this.camera = camera;
-    this.controls = controls;
-    this.buildingMeshes = new Map(); // buildingName -> mesh[]
+    this.buildingMeshes = new Map();
     this.animationQueue = [];
     this.isAnimating = false;
-    this.isPaused = false; // Pause state
+    this.isPaused = false;
   }
 
   setPaused(paused) {
     this.isPaused = paused;
     if (paused) {
-      // When paused, complete current building animation but don't start new ones
       console.log('Building animator paused');
     } else {
       console.log('Building animator resumed');
-      // Animation processing is now handled by update() method called from main loop
     }
   }
 
@@ -29,7 +25,6 @@ export class BuildingAnimator {
     }
     this.buildingMeshes.get(name).push(mesh);
     
-    // Initially hide all buildings
     mesh.visible = false;
     mesh.scale.set(0, 0, 0);
   }
@@ -37,29 +32,24 @@ export class BuildingAnimator {
   showBuildingsUpToYear(year, animate = true) {
     const buildingsToShow = [];
     
-    // Collect all buildings that should be visible
     for (const [buildYear, buildingNames] of Object.entries(BUILDING_TIMELINE)) {
       if (parseInt(buildYear) <= year) {
         buildingsToShow.push(...buildingNames);
       }
     }
 
-    // Track which buildings are NEW (weren't visible before)
     const newBuildings = [];
     const visibleBuildings = [];
     
     for (const [name, meshes] of this.buildingMeshes) {
       if (buildingsToShow.includes(name)) {
-        // Building should be visible
         visibleBuildings.push(name);
         
-        // Check if it's already visible
         const isAlreadyVisible = meshes.some(mesh => mesh.visible && mesh.scale.x > 0.9);
         if (!isAlreadyVisible) {
           newBuildings.push(name);
         }
       } else {
-        // Hide buildings beyond current year
         meshes.forEach(mesh => {
           mesh.visible = false;
           mesh.scale.set(0, 0, 0);
@@ -67,11 +57,9 @@ export class BuildingAnimator {
       }
     }
 
-    if (animate) {
-      // Only animate NEW buildings, keep already-visible ones as they are
+    if (animate && newBuildings.length > 0) {
       this.animateBuildings(newBuildings, year);
-    } else {
-      // Instant visibility (for jumping)
+    } else if (!animate) {
       visibleBuildings.forEach(name => {
         const meshes = this.buildingMeshes.get(name);
         if (meshes) {
@@ -85,22 +73,33 @@ export class BuildingAnimator {
   }
 
   animateBuildings(buildingNames, year) {
-    // Create animation queue for this year's buildings
-    this.animationQueue = [];
+    // Calculate offset for staggered timing - append to existing queue
+    let queueOffset = 0;
+    if (this.animationQueue.length > 0) {
+      const maxDelay = Math.max(...this.animationQueue.map(a => a.delay));
+      const maxDuration = Math.max(...this.animationQueue.map(a => a.duration));
+      queueOffset = maxDelay + maxDuration;
+    }
     
     buildingNames.forEach((name, index) => {
       const meshes = this.buildingMeshes.get(name);
       if (meshes) {
         meshes.forEach(mesh => {
+          // Skip if already in queue
+          if (this.animationQueue.some(a => a.mesh === mesh)) return;
+          
+          // Calculate building height
+          mesh.geometry.computeBoundingBox();
+          const buildingHeight = mesh.geometry.boundingBox.max.z - mesh.geometry.boundingBox.min.z;
+          
           this.animationQueue.push({
             mesh,
             buildingName: name,
             year,
-            delay: index * 1000, // 1 second between buildings
+            delay: queueOffset + index * 1000,
             startTime: null,
-            duration: 2000, // 2 seconds animation
-            startPos: mesh.position.clone(),
-            endPos: mesh.position.clone()
+            duration: 2000,
+            buildingHeight
           });
         });
       }
@@ -131,7 +130,7 @@ export class BuildingAnimator {
 
       if (progress >= 1) {
         anim.mesh.scale.set(1, 1, 1);
-        anim.mesh.position.z = anim.endPos.z;
+        anim.mesh.position.z = 0;
         anim.mesh.rotation.x = 0;
         this.animationQueue.splice(i, 1);
       } else {
@@ -139,9 +138,8 @@ export class BuildingAnimator {
         const scale = easeProgress;
         anim.mesh.scale.set(scale, scale, scale);
 
-        const totalHeight = Math.abs(anim.startPos.z - anim.endPos.z);
-        const currentHeight = totalHeight * easeProgress;
-        anim.mesh.position.z = anim.startPos.z + currentHeight;
+        const currentHeight = anim.buildingHeight * easeProgress;
+        anim.mesh.position.z = -anim.buildingHeight + currentHeight;
 
         if (progress < 0.5) {
           anim.mesh.rotation.x = Math.sin(progress * Math.PI * 2) * 0.05 * (1 - progress * 2);
@@ -155,20 +153,11 @@ export class BuildingAnimator {
   }
 
   startBuildingAnimation(anim) {
-    // Make building visible and start animation
     anim.mesh.visible = true;
     
-    // Calculate building height from geometry
-    const geometry = anim.mesh.geometry;
-    geometry.computeBoundingBox();
-    const buildingHeight = geometry.boundingBox.max.z - geometry.boundingBox.min.z;
-    
-    // Store original position and set starting position below ground
-    // With campusGroup rotated, Z points "up" in world space
-    anim.startPos = anim.endPos.clone();
-    anim.startPos.z = -buildingHeight; // Start below ground
-    anim.mesh.position.copy(anim.startPos);
     anim.mesh.scale.set(0, 0, 0);
+    anim.mesh.position.z = -anim.buildingHeight;
+    anim.mesh.rotation.x = 0;
   }
 
   easeOutBack(t) {
@@ -176,8 +165,6 @@ export class BuildingAnimator {
     const c3 = c1 + 1;
     return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
   }
-
-
 
   getBuildingInfo(buildingName) {
     const year = Object.entries(BUILDING_TIMELINE).find(([year, buildings]) => 

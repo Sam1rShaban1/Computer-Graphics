@@ -14,23 +14,23 @@ export class CameraController {
         this.startPosition = new THREE.Vector3();
         this.startLookAt = new THREE.Vector3();
         
-        // Preset viewpoints
+        // Preset viewpoints (Z is up in this project)
         this.presets = {
             overview: {
-                position: new THREE.Vector3(200, 200, 100),
-                lookAt: new THREE.Vector3(0, 0, 0)
+                position: new THREE.Vector3(200, -200, 100),
+                lookAt: new THREE.Vector3(0, 300, 0)
             },
             aerial: {
-                position: new THREE.Vector3(0, 500, 200),
-                lookAt: new THREE.Vector3(0, 0, 0)
+                position: new THREE.Vector3(0, -500, 200),
+                lookAt: new THREE.Vector3(0, 300, 0)
             },
             entrance: {
                 position: new THREE.Vector3(100, 50, 30),
-                lookAt: new THREE.Vector3(0, 0, 0)
+                lookAt: new THREE.Vector3(0, 300, 0)
             },
             library: {
-                position: new THREE.Vector3(50, 100, 40),
-                lookAt: new THREE.Vector3(-50, 50, 0)
+                position: new THREE.Vector3(50, -100, 40),
+                lookAt: new THREE.Vector3(-50, 400, 0)
             }
         };
         
